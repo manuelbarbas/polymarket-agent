@@ -152,7 +152,11 @@ class PolymarketAgent:
         for market in markets:
             # Placeholder: Use market volume as a proxy for confidence
             # In production, use AI probability estimates
-            volume = market.get("volume", 0)
+            volume_raw = market.get("volume", 0)
+            try:
+                volume = int(float(volume_raw))
+            except (ValueError, TypeError):
+                volume = 0
 
             if volume > 10000:
                 # Assume market odds from outcomes if available

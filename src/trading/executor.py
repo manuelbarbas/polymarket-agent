@@ -32,13 +32,23 @@ class TradeExecutor:
         Args:
             private_key: Polygon wallet private key (or from env)
         """
+        # If private_key is passed as an object (like PolygonWallet), extract the actual key string
+        if not isinstance(private_key, str) and hasattr(private_key, 'private_key'):
+            private_key = private_key.private_key
+
         self.private_key = private_key or os.getenv("POLYGON_WALLET_PRIVATE_KEY", "")
-        if not self.private_key.startswith("0x"):
-            self.private_key = "0x" + self.private_key
+
+        # Ensure private_key is a string before calling startswith
+        if isinstance(self.private_key, str) and self.private_key:
+            if not self.private_key.startswith("0x"):
+                self.private_key = "0x" + self.private_key
 
         # Get wallet address from private key (EOA that signs)
         from eth_account import Account
         self.signer_address = Account.from_key(self.private_key).address
+
+        print("A MINHA WALLET")
+        print(self.signer_address)
 
         # Polymarket proxy wallet (where funds are held and trades execute)
         # This is the funder address on Polymarket

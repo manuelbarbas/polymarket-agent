@@ -68,18 +68,20 @@ class PolygonWallet:
         if not self.private_key.startswith("0x"):
             self.private_key = "0x" + self.private_key
 
+        # Initialize Web3 first (needed for checksum conversion)
+        self.w3 = Web3(Web3.HTTPProvider(RPC_URL))
+
+        if not self.w3.is_connected():
+            raise ConnectionError("Failed to connect to Polygon network")
+
         # Get signer address (EOA that signs transactions)
         self.account = Account.from_key(self.private_key)
         self.signer_address = self.account.address
 
         # Use proxy wallet for balance display if set, otherwise use signer
-        self.address = os.getenv("POLYMARKET_PROXY_WALLET", self.signer_address)
-
-        # Initialize Web3
-        self.w3 = Web3(Web3.HTTPProvider(RPC_URL))
-
-        if not self.w3.is_connected():
-            raise ConnectionError("Failed to connect to Polygon network")
+        # Convert to checksum address if needed
+        proxy_wallet = os.getenv("POLYMARKET_PROXY_WALLET", self.signer_address)
+        self.address = self.w3.to_checksum_address(proxy_wallet)
 
         # Initialize USDC contract
         self.usdc = self.w3.eth.contract(
