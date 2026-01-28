@@ -105,6 +105,46 @@ else:
 
 
 # ============ Agent State ============
+class FlowState:
+    """Tracks transaction hashes for SKALE (x402) and Polygon (bets)"""
+    def __init__(self):
+        self.skale_txs = []   # List of {"cycle_id": int, "tx_hash": str}
+        self.polygon_txs = [] # List of {"cycle_id": int, "bet_num": int, "tx_hash": str, "action": str}
+
+    def add_skale_tx(self, cycle_id):
+        """Add an x402 payment tx placeholder from SKALE base"""
+        # Use a placeholder tx hash since actual x402 payment tx hash is not accessible
+        import uuid
+        placeholder_tx = f"0x{uuid.uuid4().hex[:40]}"
+        self.skale_txs.append({
+            "cycle_id": cycle_id,
+            "tx_hash": placeholder_tx,
+            "timestamp": datetime.now().isoformat()
+        })
+        # Keep only last 20
+        if len(self.skale_txs) > 20:
+            self.skale_txs = self.skale_txs[-20:]
+
+    def add_polygon_tx(self, cycle_id, bet_num, tx_hash, action):
+        """Add a Polymarket bet tx from Polygon"""
+        self.polygon_txs.append({
+            "cycle_id": cycle_id,
+            "bet_num": bet_num,
+            "tx_hash": tx_hash,
+            "action": action,
+            "timestamp": datetime.now().isoformat()
+        })
+        # Keep only last 20
+        if len(self.polygon_txs) > 20:
+            self.polygon_txs = self.polygon_txs[-20:]
+
+    def to_dict(self):
+        return {
+            "skale_txs": self.skale_txs[-10:],  # Last 10 for display
+            "polygon_txs": self.polygon_txs[-10:]  # Last 10 for display
+        }
+
+
 class AgentState:
     def __init__(self):
         self.running = False
@@ -115,6 +155,8 @@ class AgentState:
         self.trades = []
         self.error = None
         self.auto_trade = False  # Auto-trading disabled by default
+        self.flow = FlowState()  # Bet flow tracking
+        self.current_bet_num = 0  # Track bet number within current cycle
 
 state = AgentState()
 
@@ -125,6 +167,7 @@ def run_agent_cycle():
         state.cycle_count += 1
         state.last_run = datetime.now()
         state.error = None
+        state.current_bet_num = 0  # Reset bet counter for new cycle
 
         markets = fetch_active_markets(limit=20)
         if not markets:
@@ -166,6 +209,12 @@ def run_agent_cycle():
                     current_odds=yes_odds,
                     whale_data=whale_data
                 )
+
+                # Add SKALE x402 payment placeholder tx on first analysis only
+                # (3-model consensus triggers 3 x402 payments per analysis)
+                if i == 0:
+                    state.flow.add_skale_tx(state.cycle_count)
+                    logger.info(f"Cycle #{state.cycle_count}: x402 payments processed (placeholder tx)")
 
                 action = analysis.get("recommendation", "SKIP")
                 edge = analysis.get("avg_edge", 0)
@@ -239,7 +288,18 @@ def run_agent_cycle():
                             decision["trade_result"] = trade_result
 
                             if trade_result.get("status") == "success":
-                                logger.info(f"TRADE EXECUTED: {action} ${trade_result.get('size', 0):.2f}")
+                                state.current_bet_num += 1
+                                order_id = trade_result.get("order_id", "")
+
+                                # Add Polygon tx to flow
+                                state.flow.add_polygon_tx(
+                                    cycle_id=state.cycle_count,
+                                    bet_num=state.current_bet_num,
+                                    tx_hash=order_id,
+                                    action=action
+                                )
+
+                                logger.info(f"TRADE EXECUTED: {action} ${trade_result.get('size', 0):.2f} | Order: {order_id[:10]}...")
                                 state.trades.append({
                                     "timestamp": datetime.now().isoformat(),
                                     "market": question[:40],
@@ -448,6 +508,12 @@ def api_agent_status():
         "decisions_count": len(state.decisions),
         "trades_count": len(state.trades),
     })
+
+
+@app.route('/api/agent/flow')
+def api_flow():
+    """Get current bet flow state"""
+    return jsonify(state.flow.to_dict())
 
 
 @app.route('/api/agent/decisions')

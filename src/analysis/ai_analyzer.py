@@ -3,10 +3,13 @@ AI Market Analyzer - Powered by BlockRun
 Uses BlockRun SDK for pay-per-request AI analysis without API keys.
 """
 import os
+import logging
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Import BlockRun SDK
 try:
@@ -283,19 +286,25 @@ REASONING: [1 sentence]"""
         # Query each model
         for model in self.CONSENSUS_MODELS:
             try:
-                response = self.client.chat(
+                messages = [
+                    {"role": "user", "content": prompt}
+                ]
+                response = self.client.chat_completion(
                     model=model,
-                    prompt=prompt,
+                    messages=messages,
                     max_tokens=150,
                     temperature=0.3
                 )
+
+                # Extract response text
+                response_text = response.choices[0].message.content
 
                 # Parse response
                 ai_prob = current_odds
                 confidence = 5
                 reasoning = ""
 
-                for line in response.strip().split("\n"):
+                for line in response_text.strip().split("\n"):
                     if line.startswith("PROBABILITY:"):
                         try:
                             ai_prob = float(line.split(":")[1].strip().replace("%", "")) / 100
