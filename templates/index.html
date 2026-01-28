@@ -2190,19 +2190,18 @@
             if (flow.skale_txs && flow.skale_txs.length > 0) {
                 skaleList.innerHTML = '<ul class="bet-flow-tx-list">' +
                     flow.skale_txs.slice().reverse().map(tx => {
-                        const shortHash = tx.tx_hash.slice(0, 10) + '...' + tx.tx_hash.slice(-8);
                         return `
                             <li class="bet-flow-tx-item">
                                 <div class="bet-flow-tx-header">
-                                    <span class="bet-flow-tx-id">#${tx.cycle_id}</span>
+                                    <span class="bet-flow-tx-id">x402 Request #${tx.request_num}</span>
                                 </div>
-                                <a href="https://skale-base-explorer.skalenodes.com/tx/${tx.tx_hash}" target="_blank" class="bet-flow-tx-link">${shortHash}</a>
+                                <div class="bet-flow-tx-link">Paid in SKALE Base: ${tx.amount} USDC</div>
                             </li>
                         `;
                     }).join('') +
                 '</ul>';
             } else {
-                skaleList.innerHTML = '<div class="bet-flow-empty">No transactions yet</div>';
+                skaleList.innerHTML = '<div class="bet-flow-empty">No x402 requests yet</div>';
             }
 
             // Update Polygon tx list

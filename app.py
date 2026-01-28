@@ -108,17 +108,17 @@ else:
 class FlowState:
     """Tracks transaction hashes for SKALE (x402) and Polygon (bets)"""
     def __init__(self):
-        self.skale_txs = []   # List of {"cycle_id": int, "tx_hash": str}
+        self.skale_txs = []   # List of {"cycle_id": int, "request_num": int, "amount": str}
         self.polygon_txs = [] # List of {"cycle_id": int, "bet_num": int, "tx_hash": str, "action": str}
+        self.skale_request_count = 0  # Track total x402 requests
 
-    def add_skale_tx(self, cycle_id):
-        """Add an x402 payment tx placeholder from SKALE base"""
-        # Use a placeholder tx hash since actual x402 payment tx hash is not accessible
-        import uuid
-        placeholder_tx = f"0x{uuid.uuid4().hex[:40]}"
+    def add_skale_tx(self, cycle_id, amount="0.0001"):
+        """Add an x402 payment request from SKALE base"""
+        self.skale_request_count += 1
         self.skale_txs.append({
             "cycle_id": cycle_id,
-            "tx_hash": placeholder_tx,
+            "request_num": self.skale_request_count,
+            "amount": amount,
             "timestamp": datetime.now().isoformat()
         })
         # Keep only last 20
@@ -210,11 +210,13 @@ def run_agent_cycle():
                     whale_data=whale_data
                 )
 
-                # Add SKALE x402 payment placeholder tx on first analysis only
+                # Add SKALE x402 payment requests on first analysis only
                 # (3-model consensus triggers 3 x402 payments per analysis)
                 if i == 0:
-                    state.flow.add_skale_tx(state.cycle_count)
-                    logger.info(f"Cycle #{state.cycle_count}: x402 payments processed (placeholder tx)")
+                    # Add 3 separate x402 requests for the 3 model consensus
+                    for req_num in range(3):
+                        state.flow.add_skale_tx(state.cycle_count, amount="0.0001")
+                    logger.info(f"Cycle #{state.cycle_count}: 3 x402 payment requests processed")
 
                 action = analysis.get("recommendation", "SKIP")
                 edge = analysis.get("avg_edge", 0)
